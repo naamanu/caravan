@@ -87,7 +87,6 @@ CREATE TRIGGER caravan_jobs_notify
   ]
 
 let latest = List.fold_left (fun m (v, _, _) -> max m v) 0 migrations
-
 let src = Logs.Src.create "caravan.postgres.migrate"
 
 module Log = (val Logs.src_log src)
@@ -115,7 +114,8 @@ let migrate conn =
   Pg.exec conn bootstrap;
   Pg.with_transaction conn (fun () ->
       ignore
-        (Pg.query conn "SELECT pg_advisory_xact_lock(hashtext('caravan_migrate'))");
+        (Pg.query conn
+           "SELECT pg_advisory_xact_lock(hashtext('caravan_migrate'))");
       let current = current_version conn in
       let pending = List.filter (fun (v, _, _) -> v > current) migrations in
       List.iter

@@ -1,0 +1,14 @@
+(library
+ (name caravan_web)
+ (public_name caravan-web)
+ (libraries
+  caravan
+  eio
+  cohttp-eio
+  http
+  uri
+  yojson
+  ptime
+  ptime.clock.os
+  base64
+  logs))

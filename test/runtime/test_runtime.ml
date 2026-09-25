@@ -350,10 +350,12 @@ let test_unique () =
   in
   (* Requeuing the cancelled first job would create a second active job with
      the same key: it must be refused. *)
-  Alcotest.(check bool) "requeue refused while key is held" false
+  Alcotest.(check bool)
+    "requeue refused while key is held" false
     (Client.retry client (id_of a));
   ignore (Client.cancel client second);
-  Alcotest.(check bool) "requeue allowed once key is free" true
+  Alcotest.(check bool)
+    "requeue allowed once key is free" true
     (Client.retry client (id_of a));
   ignore mem
 
@@ -538,6 +540,12 @@ let test_operator_retry () =
     "extra attempt granted" 2
     (Option.get (Memory_backend.get mem id)).max_attempts
 
+let test_node_ids_differ () =
+  let ids = List.init 50 (fun _ -> (Node.default_config ()).node_id) in
+  Alcotest.(check int)
+    "50 distinct ids" 50
+    (List.length (List.sort_uniq compare ids))
+
 let () =
   let tc name f = Alcotest.test_case name `Quick f in
   Alcotest.run "caravan-runtime"
@@ -560,6 +568,7 @@ let () =
           tc "shutdown waits for short jobs" test_graceful_shutdown_waits;
           tc "rescue from dead node" test_rescue_dead_node;
           tc "stale outcome ignored" test_stale_outcome_ignored;
+          tc "default node ids are distinct" test_node_ids_differ;
         ] );
       ( "cluster",
         [

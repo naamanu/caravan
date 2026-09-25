@@ -11,8 +11,11 @@ depends: [
   "dune" {>= "3.17"}
   "caravan" {= version}
   "cohttp-eio" {>= "6.0"}
-  "tyxml" {>= "4.5"}
+  "http" {>= "6.0"}
+  "base64" {>= "3.0"}
   "uri" {>= "4.0"}
+  "eio_main" {with-test}
+  "alcotest" {with-test}
   "odoc" {with-doc}
 ]
 build: [

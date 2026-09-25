@@ -1,0 +1,4 @@
+(test
+ (name test_web)
+ (package caravan-web)
+ (libraries caravan caravan-web eio eio.mock alcotest ptime yojson base64))

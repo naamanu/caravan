@@ -23,7 +23,6 @@ let p_id id = Some (Int64.to_string id)
 let p_time t = Some (Printf.sprintf "%.6f" (Ptime.to_float_s t))
 let p_json j = Some (Yojson.Safe.to_string j)
 let p_opt f = function None -> None | Some x -> f x
-
 let rfc3339 t = Ptime.to_rfc3339 ~frac_s:6 ~tz_offset_s:0 t
 
 let columns =
@@ -56,9 +55,7 @@ let row_of (r : string option array) : Row.t =
   let errors =
     match json (get 10) with
     | `List l ->
-        List.filter_map
-          (fun j -> Result.to_option (Row.error_of_json j))
-          l
+        List.filter_map (fun j -> Result.to_option (Row.error_of_json j)) l
     | _ -> []
   in
   {
@@ -82,7 +79,6 @@ let row_of (r : string option array) : Row.t =
   }
 
 let rows_of (res : Pg.result) = Array.to_list (Array.map row_of res.rows)
-
 let use t f = Pg.use t.pool f
 let query t ?params sql = use t (fun c -> Pg.query c ?params sql)
 
@@ -135,7 +131,9 @@ let insert_one conn ~now (i : Row.insert) =
         (* Conflict: return the job holding the key. It may have finished in
            between, in which case the key is free again: retry the insert. *)
         let key = Option.get i.i_unique_key in
-        match rows_of (Pg.query conn ~params:[ p key ] find_active_unique_sql) with
+        match
+          rows_of (Pg.query conn ~params:[ p key ] find_active_unique_sql)
+        with
         | r :: _ -> Row.Duplicate r
         | [] when tries < 5 -> go (tries + 1)
         | [] -> failwith "caravan_postgres: unique insert kept conflicting")
@@ -155,7 +153,9 @@ let insert t ~now inserts =
   match inserts with
   | [] -> []
   | [ _ ] -> use t (fun c -> insert_in c ~now inserts)
-  | _ -> use t (fun c -> Pg.with_transaction c (fun () -> insert_in c ~now inserts))
+  | _ ->
+      use t (fun c ->
+          Pg.with_transaction c (fun () -> insert_in c ~now inserts))
 
 (* --- Claiming and outcomes ------------------------------------------------- *)
 
@@ -181,7 +181,8 @@ let fetch t ~now ~queue ~limit ~node =
     query t ~params:[ p queue; p_int limit; p_time now; p node ] fetch_sql
     |> rows_of
     |> List.sort (fun (a : Row.t) (b : Row.t) ->
-        compare (a.priority, Ptime.to_float_s a.scheduled_at, a.id)
+        compare
+          (a.priority, Ptime.to_float_s a.scheduled_at, a.id)
           (b.priority, Ptime.to_float_s b.scheduled_at, b.id))
 
 (* Apply [set] to the job iff it is still executing under [claim]. Parameters
@@ -205,7 +206,8 @@ let claimed t (claim : Row.claim) ~set params =
 let error_array (e : Row.error) = p_json (`List [ Row.error_to_json e ])
 
 let complete t ~now claim =
-  claimed t claim ~set:"state = 'completed', finished_at = to_timestamp($4::float8)"
+  claimed t claim
+    ~set:"state = 'completed', finished_at = to_timestamp($4::float8)"
     [ p_time now ]
 
 let retry t ~now:_ claim ~error ~at =
@@ -237,7 +239,8 @@ let cancel_claimed t ~now claim ~error =
     [ p_time now; error_array error ]
 
 let release t ~node =
-  (query t ~params:[ p node ]
+  (query t
+     ~params:[ p node ]
      "UPDATE caravan_jobs SET state = 'available', attempt = attempt - 1 WHERE \
       state = 'executing' AND attempted_by = $1")
     .affected
@@ -245,7 +248,8 @@ let release t ~node =
 (* --- Operator actions ----------------------------------------------------- *)
 
 let cancel t ~now id =
-  (query t ~params:[ p_id id; p_time now ]
+  (query t
+     ~params:[ p_id id; p_time now ]
      "UPDATE caravan_jobs SET state = 'cancelled', finished_at = \
       to_timestamp($2::float8) WHERE id = $1 AND state IN ('available', \
       'scheduled', 'executing', 'retryable')")
@@ -253,7 +257,8 @@ let cancel t ~now id =
 
 let requeue t ~now id =
   match
-    query t ~params:[ p_id id; p_time now ]
+    query t
+      ~params:[ p_id id; p_time now ]
       {sql|UPDATE caravan_jobs j SET
   state = 'available', scheduled_at = to_timestamp($2::float8),
   finished_at = NULL, max_attempts = greatest(max_attempts, attempt + 1)
@@ -275,7 +280,8 @@ WHERE id = $1
 (* --- Maintenance ------------------------------------------------------------ *)
 
 let stage t ~now =
-  (query t ~params:[ p_time now ]
+  (query t
+     ~params:[ p_time now ]
      "UPDATE caravan_jobs SET state = 'available' WHERE state IN ('scheduled', \
       'retryable') AND scheduled_at <= to_timestamp($1::float8)")
     .affected
@@ -307,7 +313,8 @@ WHERE state = 'executing'
       .affected
 
 let prune t ~before ~limit =
-  (query t ~params:[ p_time before; p_int limit ]
+  (query t
+     ~params:[ p_time before; p_int limit ]
      {sql|DELETE FROM caravan_jobs WHERE id IN (
   SELECT id FROM caravan_jobs
   WHERE state IN ('completed', 'discarded', 'cancelled')
@@ -324,7 +331,8 @@ let node_info_to_json (n : Backend.node_info) =
       ( "queues",
         `List
           (List.map
-             (fun (q, c) -> `Assoc [ ("queue", `String q); ("concurrency", `Int c) ])
+             (fun (q, c) ->
+               `Assoc [ ("queue", `String q); ("concurrency", `Int c) ])
              n.queues) );
       ("hostname", `String n.hostname);
       ("pid", `Int n.pid);
@@ -370,7 +378,8 @@ let nodes t =
   |> List.filter_map (fun r -> node_info_of_json (json (req r.(0))))
 
 let remove_node t node =
-  ignore (query t ~params:[ p node ] "DELETE FROM caravan_nodes WHERE node = $1")
+  ignore
+    (query t ~params:[ p node ] "DELETE FROM caravan_nodes WHERE node = $1")
 
 let try_lead t ~now ~node ~ttl =
   let expires =
@@ -392,7 +401,8 @@ RETURNING node|sql}
 
 let resign t ~node =
   ignore
-    (query t ~params:[ p node ]
+    (query t
+       ~params:[ p node ]
        "DELETE FROM caravan_leader WHERE name = 'leader' AND node = $1")
 
 (* --- Waiting for work ------------------------------------------------------- *)
@@ -453,7 +463,8 @@ let rec listener t ~sleep ~conninfo delay =
 let get t id =
   match
     rows_of
-      (query t ~params:[ p_id id ]
+      (query t
+         ~params:[ p_id id ]
          (Printf.sprintf "SELECT %s FROM caravan_jobs WHERE id = $1" columns))
   with
   | r :: _ -> Some r
@@ -486,8 +497,7 @@ let stats t : Backend.stats =
     (query t
        "SELECT queue, state, count(*) FROM caravan_jobs GROUP BY queue, state \
         ORDER BY queue, state")
-      .rows
-    |> Array.to_list
+      .rows |> Array.to_list
     |> List.map (fun r ->
         ( req r.(0),
           (match State.of_string (req r.(1)) with
@@ -497,8 +507,8 @@ let stats t : Backend.stats =
     |> List.sort compare
   in
   let paused =
-    (query t "SELECT queue FROM caravan_queues WHERE paused ORDER BY queue").rows
-    |> Array.to_list
+    (query t "SELECT queue FROM caravan_queues WHERE paused ORDER BY queue")
+      .rows |> Array.to_list
     |> List.map (fun r -> req r.(0))
   in
   { counts; paused }
@@ -511,8 +521,7 @@ let set_paused t ~queue paused =
         CONFLICT (queue) DO UPDATE SET paused = EXCLUDED.paused");
   if not paused then
     (* Wake producers of this queue on every node. *)
-    ignore
-      (query t ~params:[ p queue ] "SELECT pg_notify('caravan_jobs', $1)")
+    ignore (query t ~params:[ p queue ] "SELECT pg_notify('caravan_jobs', $1)")
 
 (* --- Construction ------------------------------------------------------------- *)
 
@@ -572,10 +581,11 @@ let migrate t = use t Schema.migrate
 let schema_version t = use t Schema.current_version
 let latest_schema_version = Schema.latest
 
-let with_transaction t f = use t (fun c -> Pg.with_transaction c (fun () -> f c))
+let with_transaction t f =
+  use t (fun c -> Pg.with_transaction c (fun () -> f c))
 
-let enqueue_in conn ?(now = Ptime_clock.now ()) job ?queue ?priority ?max_attempts
-    ?delay ?at ?meta ?tags ?unique_key args =
+let enqueue_in conn ?(now = Ptime_clock.now ()) job ?queue ?priority
+    ?max_attempts ?delay ?at ?meta ?tags ?unique_key args =
   let scheduled_at =
     match (at, delay) with
     | Some at, _ -> Some at
@@ -587,9 +597,7 @@ let enqueue_in conn ?(now = Ptime_clock.now ()) job ?queue ?priority ?max_attemp
     Job.to_insert job ?queue ?priority ?max_attempts ?scheduled_at ?meta ?tags
       ?unique_key args
   in
-  match insert_in conn ~now [ insert ] with
-  | [ r ] -> r
-  | _ -> assert false
+  match insert_in conn ~now [ insert ] with [ r ] -> r | _ -> assert false
 
 let truncate_all t =
   use t (fun c ->

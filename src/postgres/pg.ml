@@ -158,8 +158,7 @@ let with_transaction c f =
          with _ -> c.usable <- false);
       Printexc.raise_with_backtrace e bt
 
-let listen c channel =
-  ignore (query c (Printf.sprintf "LISTEN %s" channel))
+let listen c channel = ignore (query c (Printf.sprintf "LISTEN %s" channel))
 
 let rec drain c acc =
   match c.pg#notifies with Some n -> drain c (n :: acc) | None -> List.rev acc
@@ -181,14 +180,14 @@ let pool ?(size = 10) conninfo =
   let conns = ref [] and mutex = Mutex.create () in
   let track c = Mutex.protect mutex (fun () -> conns := c :: !conns) in
   let untrack c =
-    Mutex.protect mutex (fun () -> conns := List.filter (fun c' -> c' != c) !conns)
+    Mutex.protect mutex (fun () ->
+        conns := List.filter (fun c' -> c' != c) !conns)
   in
   {
     conns;
     mutex;
     pool =
-      Eio.Pool.create size
-        ~validate:is_usable
+      Eio.Pool.create size ~validate:is_usable
         ~dispose:(fun c ->
           untrack c;
           close c)
@@ -201,5 +200,10 @@ let pool ?(size = 10) conninfo =
 let use p f = Eio.Pool.use p.pool f
 
 let close_pool p =
-  let conns = Mutex.protect p.mutex (fun () -> let l = !(p.conns) in p.conns := []; l) in
+  let conns =
+    Mutex.protect p.mutex (fun () ->
+        let l = !(p.conns) in
+        p.conns := [];
+        l)
+  in
   List.iter close conns

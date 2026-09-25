@@ -66,10 +66,14 @@
    (= :version))
   (cohttp-eio
    (>= 6.0))
-  (tyxml
-   (>= 4.5))
+  (http
+   (>= 6.0))
+  (base64
+   (>= 3.0))
   (uri
-   (>= 4.0))))
+   (>= 4.0))
+  (eio_main :with-test)
+  (alcotest :with-test)))
 
 (package
  (name caravan-cli)

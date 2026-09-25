@@ -17,6 +17,7 @@ val connect : string -> conn
     @raise Pg_error if the connection cannot be established. *)
 
 val close : conn -> unit
+
 val is_usable : conn -> bool
 (** [false] once a query on this connection was interrupted or the connection
     failed; such connections must be discarded. *)
@@ -39,8 +40,8 @@ val with_transaction : conn -> (unit -> 'a) -> 'a
 val listen : conn -> string -> unit
 
 val await_notifications : conn -> Postgresql.Notification.t list
-(** Block until at least one notification has arrived on a connection that
-    ran {!listen}, and return all that are pending. *)
+(** Block until at least one notification has arrived on a connection that ran
+    {!listen}, and return all that are pending. *)
 
 type pool
 
@@ -51,7 +52,7 @@ val use : pool -> (conn -> 'a) -> 'a
 (** Borrow a connection. Unusable connections are replaced transparently. *)
 
 val close_pool : pool -> unit
-(** Close every connection the pool opened. Call only when no fiber is using
-    the pool any more. *)
+(** Close every connection the pool opened. Call only when no fiber is using the
+    pool any more. *)
 
 val sqlstate_unique_violation : string

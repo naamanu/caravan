@@ -14,15 +14,14 @@
 
     Workers claim jobs with [SELECT ... FOR UPDATE SKIP LOCKED], so any number
     of nodes can share one database without contending on the same rows. Idle
-    producers are woken by [LISTEN]/[NOTIFY] as soon as a job becomes
-    available, and fall back to polling if notifications are unavailable (for
-    example behind a transaction-mode connection pooler such as PgBouncer).
+    producers are woken by [LISTEN]/[NOTIFY] as soon as a job becomes available,
+    and fall back to polling if notifications are unavailable (for example
+    behind a transaction-mode connection pooler such as PgBouncer).
 
-    Queries use libpq's asynchronous API through Eio, so they never block
-    other fibers. *)
+    Queries use libpq's asynchronous API through Eio, so they never block other
+    fibers. *)
 
 module Pg = Pg
-
 include Caravan.Backend.S
 
 val connect :
@@ -33,20 +32,20 @@ val connect :
   string ->
   t
 (** [connect ~sw ~clock conninfo] creates a backend with a pool of up to
-    [pool_size] (default 10) connections, plus one dedicated [LISTEN]
-    connection unless [listen] is [false].
+    [pool_size] (default 10) connections, plus one dedicated [LISTEN] connection
+    unless [listen] is [false].
 
-    A node uses one connection per concurrent backend operation; size the
-    pool for the number of queues plus some headroom, not for job
-    concurrency. [clock] bounds waits for new jobs.
+    A node uses one connection per concurrent backend operation; size the pool
+    for the number of queues plus some headroom, not for job concurrency.
+    [clock] bounds waits for new jobs.
 
     @raise Pg.Pg_error if the database cannot be reached. *)
 
 val backend : t -> Caravan.Backend.t
 
 val migrate : t -> int list
-(** Apply pending schema migrations and return the versions applied.
-    Safe to run concurrently from several processes. *)
+(** Apply pending schema migrations and return the versions applied. Safe to run
+    concurrently from several processes. *)
 
 val schema_version : t -> int
 val latest_schema_version : int

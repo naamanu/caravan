@@ -22,7 +22,11 @@ type config = {
 
 let default_node_id () =
   let host = try Unix.gethostname () with _ -> "localhost" in
-  Printf.sprintf "%s-%d-%04x" host (Unix.getpid ()) (Random.bits () land 0xffff)
+  (* Self-seeded: the global generator starts from the same seed in every
+     process, which would give containers (all pid 1) identical ids. *)
+  let rng = Random.State.make_self_init () in
+  Printf.sprintf "%s-%d-%06x" host (Unix.getpid ())
+    (Random.State.bits rng land 0xffffff)
 
 let default_config () =
   {

@@ -221,8 +221,8 @@ let requeue t ~now id =
     (fun r ->
       r.id = id
       && (match r.state with
-         | Completed | Discarded | Cancelled | Retryable | Scheduled -> true
-         | Available | Executing -> false)
+        | Completed | Discarded | Cancelled | Retryable | Scheduled -> true
+        | Available | Executing -> false)
       &&
       (* Never create a second active job with the same unique key. *)
       match r.unique_key with

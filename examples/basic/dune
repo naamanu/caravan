@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (libraries caravan eio_main fmt)
+ (preprocess
+  (pps ppx_deriving_yojson)))

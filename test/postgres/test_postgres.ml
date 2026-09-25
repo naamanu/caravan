@@ -38,9 +38,11 @@ type op =
 let pp_op ppf = function
   | Insert { queue; priority; delay; unique; max_attempts } ->
       Fmt.pf ppf "insert(%s p%d +%ds %a max%d)" queue priority delay
-        Fmt.(option string) unique max_attempts
+        Fmt.(option string)
+        unique max_attempts
   | Insert_batch n -> Fmt.pf ppf "insert_batch(%d)" n
-  | Fetch { queue; limit; node } -> Fmt.pf ppf "fetch(%s,%d,%s)" queue limit node
+  | Fetch { queue; limit; node } ->
+      Fmt.pf ppf "fetch(%s,%d,%s)" queue limit node
   | Complete i -> Fmt.pf ppf "complete(%d)" i
   | Retry (i, d) -> Fmt.pf ppf "retry(%d,+%d)" i d
   | Discard i -> Fmt.pf ppf "discard(%d)" i
@@ -118,12 +120,17 @@ let pp_obs ppf = function
 (* Everything about a row that a user could observe, with times as floats. *)
 let snapshot (r : Row.t) =
   let t = Ptime.to_float_s in
-  ( (r.id, State.to_string r.state, r.queue, r.worker, Yojson.Safe.to_string r.args),
+  ( ( r.id,
+      State.to_string r.state,
+      r.queue,
+      r.worker,
+      Yojson.Safe.to_string r.args ),
     (r.priority, r.attempt, r.max_attempts, r.unique_key, r.attempted_by),
     ( t r.scheduled_at,
       Option.map t r.attempted_at,
       Option.map t r.finished_at,
-      List.map (fun (e : Row.error) -> (e.attempt, t e.at, e.message)) r.errors ) )
+      List.map (fun (e : Row.error) -> (e.attempt, t e.at, e.message)) r.errors
+    ) )
 
 module Run (B : Backend.S) = struct
   let step b ~now ~claims op =
@@ -177,11 +184,16 @@ module Run (B : Backend.S) = struct
     | Retry (i, d) -> (
         match claim i with
         | None -> Unit
-        | Some c -> Bool (B.retry b ~now:!now c ~error:(error c.claim_attempt "r") ~at:(at d)))
+        | Some c ->
+            Bool
+              (B.retry b ~now:!now c
+                 ~error:(error c.claim_attempt "r")
+                 ~at:(at d)))
     | Discard i -> (
         match claim i with
         | None -> Unit
-        | Some c -> Bool (B.discard b ~now:!now c ~error:(error c.claim_attempt "d")))
+        | Some c ->
+            Bool (B.discard b ~now:!now c ~error:(error c.claim_attempt "d")))
     | Snooze (i, d) -> (
         match claim i with
         | None -> Unit
@@ -190,7 +202,9 @@ module Run (B : Backend.S) = struct
         match claim i with
         | None -> Unit
         | Some c ->
-            Bool (B.cancel_claimed b ~now:!now c ~error:(error c.claim_attempt "c")))
+            Bool
+              (B.cancel_claimed b ~now:!now c
+                 ~error:(error c.claim_attempt "c")))
     | Release node -> Int (B.release b ~node)
     | Cancel id -> Bool (B.cancel b ~now:!now (Int64.of_int id))
     | Requeue id -> Bool (B.requeue b ~now:!now (Int64.of_int id))
@@ -199,7 +213,8 @@ module Run (B : Backend.S) = struct
     | Prune age ->
         Int
           (B.prune b
-             ~before:(Option.get (Ptime.sub_span !now (Ptime.Span.of_int_s age)))
+             ~before:
+               (Option.get (Ptime.sub_span !now (Ptime.Span.of_int_s age)))
              ~limit:1000)
     | Advance s ->
         now := at s;
@@ -209,8 +224,7 @@ module Run (B : Backend.S) = struct
         Unit
     | Lead node -> Bool (B.try_lead b ~now:!now ~node ~ttl:30.)
 
-  let all b =
-    List.rev (B.list b (Backend.query ~limit:1000 ()))
+  let all b = List.rev (B.list b (Backend.query ~limit:1000 ()))
 end
 
 module M = Run (Memory_backend)
@@ -237,8 +251,10 @@ let model_test ~clock pg =
             QCheck.Test.fail_reportf
               "step %d (%a): job tables differ@.memory:   %a@.postgres: %a" i
               pp_op op
-              Fmt.(Dump.list Row.pp) (M.all mem)
-              Fmt.(Dump.list Row.pp) (P.all pg);
+              Fmt.(Dump.list Row.pp)
+              (M.all mem)
+              Fmt.(Dump.list Row.pp)
+              (P.all pg);
           if Memory_backend.stats mem <> Caravan_postgres.stats pg then
             QCheck.Test.fail_reportf "step %d (%a): stats differ" i pp_op op)
         ops;
@@ -253,7 +269,8 @@ let counter_job ~clock:_ counts =
     ~perform:(fun _ n ->
       Mutex.protect (fst counts) (fun () ->
           let tbl = snd counts in
-          Hashtbl.replace tbl n (1 + Option.value (Hashtbl.find_opt tbl n) ~default:0));
+          Hashtbl.replace tbl n
+            (1 + Option.value (Hashtbl.find_opt tbl n) ~default:0));
       Outcome.Ok)
     ()
 
@@ -261,10 +278,13 @@ let test_concurrent_fetch ~sw ~clock pg () =
   ignore sw;
   ignore clock;
   Caravan_postgres.truncate_all pg;
-  let job = Job.make ~name:"x" ~codec:Codec.int ~perform:(fun _ _ -> Outcome.Ok) () in
+  let job =
+    Job.make ~name:"x" ~codec:Codec.int ~perform:(fun _ _ -> Outcome.Ok) ()
+  in
   let n = 2000 in
   ignore
-    (Caravan_postgres.insert pg ~now:(now ()) (List.init n (fun i -> Job.to_insert job i)));
+    (Caravan_postgres.insert pg ~now:(now ())
+       (List.init n (fun i -> Job.to_insert job i)));
   (* 16 fibers, each on its own pooled connection, race to claim. *)
   let claimed = ref [] in
   Eio.Fiber.all
@@ -294,9 +314,13 @@ let test_listen_wakeup ~sw ~clock pg () =
         Outcome.Ok)
       ()
   in
-  let config = { (Node.default_config ()) with node_id = "listen"; poll_interval = 30. } in
+  let config =
+    { (Node.default_config ()) with node_id = "listen"; poll_interval = 30. }
+  in
   let node =
-    Node.start ~sw ~clock ~config (Caravan_postgres.backend pg) ~jobs:[ Job.pack job ]
+    Node.start ~sw ~clock ~config
+      (Caravan_postgres.backend pg)
+      ~jobs:[ Job.pack job ]
       ~queues:[ ("default", 1) ]
   in
   (* Let the producer go idle in wait_for_jobs, then enqueue. *)
@@ -313,7 +337,9 @@ let test_listen_wakeup ~sw ~clock pg () =
 
 let test_transactional_enqueue ~sw:_ ~clock:_ pg () =
   Caravan_postgres.truncate_all pg;
-  let job = Job.make ~name:"tx" ~codec:Codec.int ~perform:(fun _ _ -> Outcome.Ok) () in
+  let job =
+    Job.make ~name:"tx" ~codec:Codec.int ~perform:(fun _ _ -> Outcome.Ok) ()
+  in
   (try
      Caravan_postgres.with_transaction pg (fun conn ->
          ignore (Caravan_postgres.enqueue_in conn job 1);
@@ -322,12 +348,16 @@ let test_transactional_enqueue ~sw:_ ~clock:_ pg () =
   Caravan_postgres.with_transaction pg (fun conn ->
       ignore (Caravan_postgres.enqueue_in conn job 2));
   let rows = Caravan_postgres.list pg (Backend.query ()) in
-  Alcotest.(check (list string)) "only the committed job exists" [ "2" ]
+  Alcotest.(check (list string))
+    "only the committed job exists" [ "2" ]
     (List.map (fun (r : Row.t) -> Yojson.Safe.to_string r.args) rows)
 
 let test_migrate_idempotent ~sw:_ ~clock:_ pg () =
-  Alcotest.(check (list int)) "nothing left to apply" [] (Caravan_postgres.migrate pg);
-  Alcotest.(check int) "at latest version" Caravan_postgres.latest_schema_version
+  Alcotest.(check (list int))
+    "nothing left to apply" []
+    (Caravan_postgres.migrate pg);
+  Alcotest.(check int)
+    "at latest version" Caravan_postgres.latest_schema_version
     (Caravan_postgres.schema_version pg)
 
 let test_cluster_on_postgres ~sw ~clock pg () =
@@ -336,18 +366,22 @@ let test_cluster_on_postgres ~sw ~clock pg () =
   let job = counter_job ~clock counts in
   let n = 1000 in
   let client = Client.make (Caravan_postgres.backend pg) in
-  ignore (Client.enqueue_many client (List.init n (fun i -> Job.to_insert job i)));
+  ignore
+    (Client.enqueue_many client (List.init n (fun i -> Job.to_insert job i)));
   let nodes =
     List.init 3 (fun i ->
         Node.start ~sw ~clock
-          ~config:{ (Node.default_config ()) with node_id = Printf.sprintf "pg%d" i }
-          (Caravan_postgres.backend pg) ~jobs:[ Job.pack job ]
+          ~config:
+            { (Node.default_config ()) with node_id = Printf.sprintf "pg%d" i }
+          (Caravan_postgres.backend pg)
+          ~jobs:[ Job.pack job ]
           ~queues:[ ("default", 10) ])
   in
   let deadline = Eio.Time.now clock +. 60. in
   let rec wait () =
     let completed =
-      List.assoc_opt ("default", State.Completed)
+      List.assoc_opt
+        ("default", State.Completed)
         (List.map (fun (q, s, c) -> ((q, s), c)) (Client.stats client).counts)
     in
     if completed <> Some n then
@@ -360,27 +394,29 @@ let test_cluster_on_postgres ~sw ~clock pg () =
   List.iter Node.stop nodes;
   let tbl = snd counts in
   Alcotest.(check int) "all ran" n (Hashtbl.length tbl);
-  Alcotest.(check bool) "each exactly once" true
+  Alcotest.(check bool)
+    "each exactly once" true
     (Hashtbl.fold (fun _ c ok -> ok && c = 1) tbl true);
-  Alcotest.(check int) "nodes deregistered" 0 (List.length (Client.nodes client))
+  Alcotest.(check int)
+    "nodes deregistered" 0
+    (List.length (Client.nodes client))
 
 let () =
   match url with
-  | None ->
-      print_endline "CARAVAN_PG_URL not set; skipping PostgreSQL tests."
+  | None -> print_endline "CARAVAN_PG_URL not set; skipping PostgreSQL tests."
   | Some url ->
       Eio_main.run @@ fun env ->
       Eio.Switch.run @@ fun sw ->
       let clock = env#clock in
       let pg = Caravan_postgres.connect ~sw ~clock ~pool_size:20 url in
-      Caravan_postgres.Pg.use
-        (Caravan_postgres.Pg.pool ~size:1 url)
-        (fun c ->
+      Caravan_postgres.Pg.use (Caravan_postgres.Pg.pool ~size:1 url) (fun c ->
           Caravan_postgres.Pg.exec c
             "DROP TABLE IF EXISTS caravan_jobs, caravan_nodes, caravan_queues, \
              caravan_leader, caravan_migrations CASCADE; DROP FUNCTION IF \
              EXISTS caravan_notify() CASCADE");
-      Alcotest.(check (list int)) "fresh migration" [ 1 ] (Caravan_postgres.migrate pg);
+      Alcotest.(check (list int))
+        "fresh migration" [ 1 ]
+        (Caravan_postgres.migrate pg);
       let tc name f = Alcotest.test_case name `Quick (f ~sw ~clock pg) in
       Alcotest.run ~and_exit:false "caravan-postgres"
         [
