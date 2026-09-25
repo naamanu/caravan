@@ -1,0 +1,13 @@
+(library
+ (name caravan)
+ (public_name caravan)
+ (libraries
+  eio
+  yojson
+  ptime
+  ptime.clock.os
+  mtime
+  mtime.clock.os
+  logs
+  fmt
+  unix))
