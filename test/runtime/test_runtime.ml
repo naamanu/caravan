@@ -343,9 +343,18 @@ let test_unique () =
   | _ -> Alcotest.fail "expected Inserted, Duplicate, Inserted");
   (* Once the first finishes, the key is free again. *)
   ignore (Client.cancel client (id_of a));
-  (match Client.enqueue client j 1 with
-  | Inserted _ -> ()
-  | Duplicate _ -> Alcotest.fail "key should be free after the job ended");
+  let second =
+    match Client.enqueue client j 1 with
+    | Inserted r -> r.id
+    | Duplicate _ -> Alcotest.fail "key should be free after the job ended"
+  in
+  (* Requeuing the cancelled first job would create a second active job with
+     the same key: it must be refused. *)
+  Alcotest.(check bool) "requeue refused while key is held" false
+    (Client.retry client (id_of a));
+  ignore (Client.cancel client second);
+  Alcotest.(check bool) "requeue allowed once key is free" true
+    (Client.retry client (id_of a));
   ignore mem
 
 let test_pause () =

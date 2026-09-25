@@ -62,7 +62,11 @@ let insert t ~now inserts =
               Option.bind i.i_unique_key (fun k -> is_active_unique t k)
             in
             match existing with
-            | Some r -> Row.Duplicate r
+            | Some r ->
+                (* Mirror PostgreSQL, where a conflicting insert still consumes
+                   a sequence value: ids are increasing but may have gaps. *)
+                t.next_id <- Int64.succ t.next_id;
+                Row.Duplicate r
             | None ->
                 let id = t.next_id in
                 t.next_id <- Int64.succ id;
@@ -216,10 +220,19 @@ let requeue t ~now id =
   update_where t
     (fun r ->
       r.id = id
+      && (match r.state with
+         | Completed | Discarded | Cancelled | Retryable | Scheduled -> true
+         | Available | Executing -> false)
       &&
-      match r.state with
-      | Completed | Discarded | Cancelled | Retryable | Scheduled -> true
-      | Available | Executing -> false)
+      (* Never create a second active job with the same unique key. *)
+      match r.unique_key with
+      | None -> true
+      | Some k -> (
+          State.is_active r.state
+          ||
+          match is_active_unique t k with
+          | None -> true
+          | Some other -> other.id = r.id))
     (fun r ->
       {
         r with

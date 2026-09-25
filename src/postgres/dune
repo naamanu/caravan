@@ -1,0 +1,4 @@
+(library
+ (name caravan_postgres)
+ (public_name caravan-postgres)
+ (libraries caravan eio eio.unix postgresql yojson ptime logs unix))

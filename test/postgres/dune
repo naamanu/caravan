@@ -1,0 +1,5 @@
+(test
+ (name test_postgres)
+ (package caravan-postgres)
+ (libraries caravan caravan-postgres eio eio_main alcotest qcheck-core
+  qcheck-alcotest ptime ptime.clock.os yojson fmt))

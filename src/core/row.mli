@@ -1,6 +1,7 @@
 (** A persisted job: the record every backend stores. *)
 
 type id = int64
+(** Job ids are unique and increase with insertion order, but may have gaps. *)
 
 type error = { attempt : int; at : Ptime.t; message : string }
 (** One failed attempt, recorded in the job's error history. *)

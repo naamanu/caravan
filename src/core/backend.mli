@@ -94,7 +94,8 @@ module type S = sig
   val requeue : t -> now:Ptime.t -> Row.id -> bool
   (** Operator retry: make a terminal, scheduled or retryable job [Available]
       now. If it had exhausted its attempts, [max_attempts] is raised by one so
-      it gets another try. *)
+      it gets another try. Returns [false], changing nothing, if the job is
+      unique and another active job now holds its key. *)
 
   val stage : t -> now:Ptime.t -> int
   (** Make due [Scheduled] and [Retryable] jobs [Available]. *)
