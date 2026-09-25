@@ -1,17 +1,18 @@
 (** The storage interface.
 
-    A backend stores job rows and implements every {!State} transition
-    atomically. Caravan ships an in-memory backend ({!Memory_backend}) and a
-    PostgreSQL backend ([caravan-postgres]); anything that implements {!S} can
-    be plugged in.
+    A backend stores job rows and implements every {!Caravan.State} transition
+    atomically. Caravan ships an in-memory backend ({!Caravan.Memory_backend})
+    and a PostgreSQL backend ([caravan-postgres]); anything that implements
+    {!Caravan.Backend.S} can be plugged in.
 
     Every operation that depends on the time takes it as [~now], supplied by the
     caller's clock. This keeps backends deterministic under test; in production
     run NTP on your nodes (small skew only delays scheduled jobs).
 
-    Operations that record an attempt's outcome take a {!Row.claim} and return
-    [false], changing nothing, if the job is no longer [Executing] under that
-    claim (for instance because it was rescued from a node presumed dead). *)
+    Operations that record an attempt's outcome take a {!Caravan.Row.claim} and
+    return [false], changing nothing, if the job is no longer [Executing] under
+    that claim (for instance because it was rescued from a node presumed dead).
+*)
 
 type node_info = {
   node : string;
@@ -59,8 +60,8 @@ module type S = sig
   (** Insert jobs, all or nothing, returning results in input order. A job whose
       [scheduled_at] is in the future starts [Scheduled]; otherwise [Available].
       A job whose unique key is held by an active job is not inserted and yields
-      [Duplicate existing].
-      @raise Invalid_argument if an insert fails {!Row.validate_insert}. *)
+      [Duplicate existing]. Raises [Invalid_argument] if an insert fails
+      {!Caravan.Row.validate_insert}. *)
 
   val fetch :
     t -> now:Ptime.t -> queue:string -> limit:int -> node:string -> Row.t list

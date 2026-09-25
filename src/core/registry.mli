@@ -3,7 +3,7 @@
 type t
 
 val create : Job.packed list -> t
-(** @raise Invalid_argument if two definitions share a name. *)
+(** Raises [Invalid_argument] if two definitions share a name. *)
 
 val names : t -> string list
 

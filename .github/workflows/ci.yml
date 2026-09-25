@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        ocaml: ["5.2", "5.5"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libpq (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libpq && brew link --force libpq
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml }}
+      - run: opam install . --deps-only --with-test --with-doc
+      - run: opam exec -- dune build @all
+      - run: opam exec -- dune test
+      - run: opam exec -- dune build @doc
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: caravan
+          POSTGRES_PASSWORD: caravan
+          POSTGRES_DB: caravan_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      CARAVAN_PG_URL: postgresql://caravan:caravan@localhost:5432/caravan_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+      - run: opam install . --deps-only --with-test
+      - name: Unit, runtime, web and PostgreSQL model tests
+        run: opam exec -- dune test --force
+      - name: Chaos test (SIGKILL workers, assert no lost jobs)
+        run: opam exec -- dune exec test/chaos/chaos.exe -- 3000 15
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+      - run: opam install ocamlformat.0.29.0
+      - run: opam exec -- dune build @fmt

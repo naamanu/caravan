@@ -26,8 +26,8 @@ type unique =
       (** At most one active job with this name and these exact arguments. *)
   | By_key of string
       (** At most one active job with this name and this key. The key is given
-          at definition time; use {!enqueue}'s [?unique_key] for per-enqueue
-          keys. *)
+          at definition time; use [?unique_key] on {!Client.enqueue} for
+          per-enqueue keys. *)
 
 type 'a t
 
@@ -50,8 +50,8 @@ val make :
     [timeout] is in seconds; an attempt that exceeds it is cancelled and counts
     as a failure.
 
-    @raise Invalid_argument
-      on an empty name, [max_attempts < 1] or a priority outside 0-9. *)
+    Raises [Invalid_argument] on an empty name, [max_attempts < 1] or a priority
+    outside 0-9. *)
 
 val name : _ t -> string
 val queue : _ t -> string

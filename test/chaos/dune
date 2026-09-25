@@ -1,0 +1,3 @@
+(executable
+ (name chaos)
+ (libraries caravan caravan-postgres eio eio_main eio.unix fmt logs logs.fmt))

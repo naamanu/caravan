@@ -25,8 +25,8 @@ type cron
 val cron : string -> 'a Job.t -> 'a -> cron
 (** [cron "*/5 * * * *" job args] enqueues [job args] at each firing time of the
     expression (see {!Cron}). Each firing is enqueued exactly once across the
-    cluster, even across leader changes.
-    @raise Invalid_argument if the expression does not parse. *)
+    cluster, even across leader changes. Raises [Invalid_argument] if the
+    expression does not parse. *)
 
 type config = {
   node_id : string;
@@ -72,10 +72,13 @@ val start :
 
     [executor] is a pool of domains plus the names of queues whose jobs are
     CPU-bound: those jobs' [perform] runs on the pool so they cannot starve the
-    node's own fibers (heartbeats, other queues) on the main domain.
+    node's own fibers (heartbeats, other queues) on the main domain. A timeout
+    on such a job stops waiting for it and records the failure, but OCaml code
+    already running on another domain cannot be preempted: it runs on until it
+    next yields to Eio.
 
-    @raise Invalid_argument
-      for an empty queue list, a concurrency below 1, or duplicate job names. *)
+    Raises [Invalid_argument] for an empty queue list, a concurrency below 1, or
+    duplicate job names. *)
 
 val stop : t -> unit
 (** Stop gracefully and wait until the node has shut down. Idempotent. *)

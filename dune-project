@@ -1,5 +1,7 @@
 (lang dune 3.17)
 
+(version 0.1.0)
+
 (name caravan)
 
 (generate_opam_files true)
@@ -39,7 +41,8 @@
   (alcotest :with-test)
   (qcheck-core :with-test)
   (qcheck-alcotest :with-test)
-  (ppx_deriving_yojson :with-test)))
+  (ppx_deriving_yojson :with-test)
+  (odoc :with-doc)))
 
 (package
  (name caravan-postgres)
@@ -49,10 +52,16 @@
  (depends
   (caravan
    (= :version))
+  (eio
+   (>= 1.2))
   (postgresql
    (>= 5.0))
-  (uri
-   (>= 4.0))
+  (yojson
+   (>= 2.1))
+  (ptime
+   (>= 1.1))
+  (logs
+   (>= 0.7))
   (eio_main :with-test)
   (alcotest :with-test)
   (qcheck-core :with-test)
@@ -72,6 +81,12 @@
    (>= 3.0))
   (uri
    (>= 4.0))
+  (yojson
+   (>= 2.1))
+  (ptime
+   (>= 1.1))
+  (logs
+   (>= 0.7))
   (eio_main :with-test)
   (alcotest :with-test)))
 
@@ -88,4 +103,8 @@
   (cmdliner
    (>= 1.2))
   (eio_main
-   (>= 1.2))))
+   (>= 1.2))
+  (fmt
+   (>= 0.9))
+  (logs
+   (>= 0.7))))

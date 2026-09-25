@@ -54,7 +54,7 @@ type claim = { claim_id : id; claim_node : string; claim_attempt : int }
     been rescued and re-run elsewhere. *)
 
 val claim_of : t -> claim
-(** @raise Invalid_argument if the row has never been attempted. *)
+(** Raises [Invalid_argument] if the row has never been attempted. *)
 
 val inserted_row : insert_result -> t
 val min_priority : int

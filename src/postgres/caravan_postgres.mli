@@ -39,7 +39,7 @@ val connect :
     for the number of queues plus some headroom, not for job concurrency.
     [clock] bounds waits for new jobs.
 
-    @raise Pg.Pg_error if the database cannot be reached. *)
+    @raise Caravan_postgres.Pg.Pg_error if the database cannot be reached. *)
 
 val backend : t -> Caravan.Backend.t
 

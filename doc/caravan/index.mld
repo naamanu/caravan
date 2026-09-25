@@ -1,0 +1,51 @@
+{0 Caravan}
+
+Durable, distributed background jobs for OCaml 5 and Eio.
+
+Producers enqueue jobs into shared storage; worker {e nodes} on any number of
+machines claim them, run them with retries and timeouts, and record the
+outcome. Caravan provides scheduling, priorities, unique jobs, cron, queue
+pausing, graceful shutdown, crash recovery, a dashboard and Prometheus
+metrics.
+
+{1 Guarantees}
+
+- {b At-least-once delivery.} A job whose node crashes mid-attempt is rescued
+  and run again elsewhere. A job can therefore run more than once: make
+  [perform] idempotent.
+- {b No double-claiming.} Two nodes never hold the same attempt of a job.
+  Outcomes are recorded against a {!Caravan.Row.claim}, so a node wrongly
+  presumed dead cannot overwrite the result of the job's next attempt.
+- {b Transactional enqueue} with PostgreSQL: a job exists if and only if the
+  transaction that enqueued it commits.
+
+{1 Modules}
+
+{2 Defining and enqueueing jobs}
+- {!Caravan.Job}: job definitions
+- {!Caravan.Codec}: argument encoding
+- {!Caravan.Outcome}: what a job reports
+- {!Caravan.Ctx}: the execution context
+- {!Caravan.Backoff}: retry delays
+- {!Caravan.Client}: enqueue and manage jobs
+
+{2 Running workers}
+- {!Caravan.Node}: the worker runtime
+- {!Caravan.Middleware}: wrap execution
+- {!Caravan.Telemetry}: runtime events
+- {!Caravan.Cron}: cron expressions
+
+{2 Storage}
+- {!Caravan.Backend}: the storage interface
+- {!Caravan.Memory_backend}: in-memory backend for tests and development
+- {!Caravan.State}, {!Caravan.Row}: the job lifecycle and record
+- The [caravan-postgres] package: the production backend
+
+{1 Lifecycle}
+
+A job starts [Available] (or [Scheduled] if it has a future run time). A node
+claims it ([Executing]). The outcome moves it to [Completed], to [Retryable]
+(with backoff) or [Discarded] on failure, back to [Scheduled] on snooze, or to
+[Cancelled]. The cluster leader stages due jobs back to [Available], rescues
+jobs from dead nodes and prunes old finished jobs. See {!Caravan.State} for
+the exact transition table.

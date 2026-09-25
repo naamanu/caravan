@@ -1,8 +1,8 @@
 (** A minimal non-blocking PostgreSQL client on libpq and Eio.
 
     Queries never block the domain: the calling fiber waits on the socket with
-    {!Eio_unix.await_readable} while other fibers run. Parameters and results
-    use the text protocol. *)
+    [Eio_unix.await_readable] while other fibers run. Parameters and results use
+    the text protocol. *)
 
 exception Pg_error of { sqlstate : string; message : string; query : string }
 (** A query failed on the server, or the connection failed ([sqlstate] is
